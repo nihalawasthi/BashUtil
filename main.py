@@ -2,8 +2,8 @@ import sys
 import socket
 import ssl
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QTabWidget,
-    QLineEdit, QToolBar, QAction, QStatusBar, QPushButton
+    QApplication, QMainWindow, QVBoxLayout, QWidget, QTabWidget,
+    QLineEdit, QToolBar, QAction, QStatusBar, QSplitter, QPushButton
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, Qt
@@ -52,6 +52,7 @@ class Browser(QMainWindow):
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f0f0f0;
+                min-width:100vw;
             }
             QTabWidget::pane {
                 border: 1px solid #ccc;
@@ -78,54 +79,55 @@ class Browser(QMainWindow):
             }
         """)
 
-        # Main layout
-        main_layout = QHBoxLayout()
-        central_widget = QWidget()
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
+        # Main layout with splitter for resizable sidebar
+        main_layout = QSplitter(Qt.Horizontal)
+        main_layout.setSizes([200, 800])  # Set initial sizes for sidebar and browser
+        self.setCentralWidget(main_layout)
+
+        # Sidebar for tabs
+        sidebar_widget = QWidget()
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Tabs
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.West)
         self.tabs.setDocumentMode(True)
         self.tabs.tabCloseRequested.connect(self.close_current_tab)
         self.tabs.currentChanged.connect(self.update_url_bar)
 
-        # New Tab button
-        self.new_tab_button = QPushButton("+")
-        self.new_tab_button.setFixedSize(25, 25)
-        self.new_tab_button.clicked.connect(self.add_new_tab)
-
-        # Sidebar widget
-        sidebar_widget = QWidget()
-        sidebar_widget_layout = QVBoxLayout()
-        sidebar_widget_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_widget_layout.addWidget(self.tabs)
-        sidebar_widget_layout.addWidget(self.new_tab_button, alignment=Qt.AlignTop)
-        sidebar_widget.setLayout(sidebar_widget_layout)
-        sidebar_layout.addWidget(sidebar_widget)
+        # Add tabs to the sidebar layout
+        sidebar_layout.addWidget(self.tabs)
+        sidebar_widget.setLayout(sidebar_layout)
 
         # Browser area
+        browser_widget = QWidget()
         self.browser_layout = QVBoxLayout()
+        browser_widget.setLayout(self.browser_layout)
 
+        # Toolbar
         nav_toolbar = QToolBar("Navigation")
         self.addToolBar(nav_toolbar)
 
-        # Back button
+        # New tab button
+        self.new_tab_button = QPushButton("+")
+        self.new_tab_button.setFixedSize(25, 25)
+        self.new_tab_button.clicked.connect(self.add_new_tab)
+        nav_toolbar.addWidget(self.new_tab_button)  # Add the new tab button to the leftmost corner of nav bar
+
+        # Back, forward, reload, home buttons
         back_btn = QAction("◀", self)
         back_btn.triggered.connect(lambda: self.tabs.currentWidget().back())
         nav_toolbar.addAction(back_btn)
 
-        # Forward button
         forward_btn = QAction("▶", self)
         forward_btn.triggered.connect(lambda: self.tabs.currentWidget().forward())
         nav_toolbar.addAction(forward_btn)
 
-        # Reload button
         reload_btn = QAction("🔄", self)
         reload_btn.triggered.connect(lambda: self.tabs.currentWidget().reload())
         nav_toolbar.addAction(reload_btn)
 
-        # Home button
         home_btn = QAction("🏠", self)
         home_btn.triggered.connect(self.navigate_home)
         nav_toolbar.addAction(home_btn)
@@ -137,10 +139,13 @@ class Browser(QMainWindow):
 
         # Status bar
         self.setStatusBar(QStatusBar())
-        main_layout.addLayout(sidebar_layout)
-        browser_widget = QWidget()
-        browser_widget.setLayout(self.browser_layout)
-        main_layout.addWidget(browser_widget, 1)
+
+        # Add the sidebar and browser widget to main layout
+        main_layout.addWidget(sidebar_widget)
+        main_layout.addWidget(browser_widget)
+        main_layout.setStretchFactor(1, 1)  # Set browser area to take remaining width
+
+        # Add the first tab
         self.add_new_tab(QUrl(f"{url.scheme}://{url.host}{url.path}"), "New Tab")
 
     def add_new_tab(self, qurl=None, label="New Tab"):
@@ -151,12 +156,6 @@ class Browser(QMainWindow):
         browser.urlChanged.connect(lambda qurl=QUrl(), browser=browser: self.update_url_bar(qurl))
         self.tabs.addTab(browser, label)
         self.tabs.setCurrentWidget(browser)
-
-    def update_url_bar(self, qurl=None):
-        if not isinstance(qurl, QUrl):
-            qurl = self.tabs.currentWidget().url()
-        self.url_bar.setText(qurl.toString())
-        self.url_bar.setCursorPosition(0)
 
     def close_current_tab(self, index):
         if self.tabs.count() > 1:
@@ -170,6 +169,12 @@ class Browser(QMainWindow):
         url_text = self.url_bar.text()
         qurl = QUrl(url_text if "://" in url_text else "http://" + url_text)
         self.tabs.currentWidget().setUrl(qurl)
+
+    def update_url_bar(self, qurl=None):
+        if not isinstance(qurl, QUrl):
+            qurl = self.tabs.currentWidget().url()
+        self.url_bar.setText(qurl.toString())
+        self.url_bar.setCursorPosition(0)
 
 def load(url):
     app = QApplication(sys.argv)
