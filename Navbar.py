@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (
-    QMainWindow, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget, QApplication, QGraphicsView, QGraphicsScene
-)
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QTabWidget, QWidget, QPushButton, QHBoxLayout, QLineEdit
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtCore import QUrl, Qt, pyqtSignal, QTimer
 import psutil
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -15,14 +15,25 @@ class CustomNavBar(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.setObjectName("customNavBar")
         self.init_ui()
+        self.network_speeds = [0] * 50 
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(5, 5, 5, 0)
+
+        self.setStyleSheet("""
+            #customNavBar {
+                border-left: 4px solid #3c3b3b;
+                border-top: 4px solid #3c3b3b;
+            }
+        """)
+
         nav_bar_layout = QHBoxLayout()
         nav_bar_layout.setContentsMargins(0, 0, 0, 0)
         nav_bar_layout.setSpacing(5)
-
         self.new_tab_button = QPushButton("+")
         self.new_tab_button.setFixedSize(30, 30)
         self.new_tab_button.setStyleSheet(self.button_style())
@@ -62,14 +73,13 @@ class CustomNavBar(QWidget):
         self.bookmark_button.setFixedSize(30, 30)
         self.bookmark_button.setStyleSheet(self.button_style())
 
-        # Replacing QProgressBar with Matplotlib Bar Graph
         self.network_speed_graph = FigureCanvas(plt.Figure(figsize=(2, 1)))
+        self.network_speed_graph.setToolTip('Hover to see network speed')
         ax = self.network_speed_graph.figure.add_subplot(111)
         ax.barh([0], [0], color='#4CAF50')  # Initial bar
         ax.set_xlim(0, 100)
         ax.set_yticks([])  # Hide y-axis ticks
-        ax.set_xticks([0, 50, 100])  # X-axis ticks for scale
-        ax.set_xticklabels([0, 50, 100])
+        ax.set_xticks([])  # Hide x-axis ticks
 
         url_bar_layout.addWidget(self.url_bar)
         url_bar_layout.addWidget(self.bookmark_button)
@@ -102,27 +112,32 @@ class CustomNavBar(QWidget):
         self.navigate_signal.emit(self.url_bar.text())
 
     def update_network_speed(self):
-        """Update the network speed graph based on actual network usage."""
+        """Update the network speed graph with scrolling effect."""
         net = psutil.net_io_counters()
         bytes_sent = net.bytes_sent - self.prev_net.bytes_sent
         bytes_recv = net.bytes_recv - self.prev_net.bytes_recv
         total_speed = (bytes_sent + bytes_recv) / 1024
-        # Update bar graph
-        self.network_speed_graph.figure.gca().clear()  # Clear previous graph
-        ax = self.network_speed_graph.figure.add_subplot(111)
-        ax.barh([0], [min(int(total_speed), 100)], color='#4CAF50')
-        ax.set_xlim(0, 100)
-        ax.set_yticks([])  # Hide y-axis ticks
-        ax.set_xticks([0, 50, 100])  # X-axis ticks for scale
-        ax.set_xticklabels([0, 50, 100])
+        self.network_speeds.append(min(int(total_speed), 100))
+        if len(self.network_speeds) > 50:
+            self.network_speeds.pop(0)
+
+        ax = self.network_speed_graph.figure.gca()
+        ax.clear()
+        ax.bar(range(len(self.network_speeds)), self.network_speeds, color='#6BEC75', width=1.0)
+        ax.axis('off')
+        if total_speed >= 1024:
+            speed_display = f"{total_speed / 1024:.2f} MB/s"
+        else:
+            speed_display = f"{total_speed:.2f} KB/s"
+        self.network_speed_graph.setToolTip(f"Packet Transfer Speed: {speed_display}")
         self.network_speed_graph.draw()
         self.prev_net = net
+
 
     @staticmethod
     def button_style():
         return """
             QPushButton {
-                border: 1px solid lightblue;
                 border-radius: 5px;
                 background-color: #f0f0f0;
             }
@@ -130,10 +145,3 @@ class CustomNavBar(QWidget):
                 background-color: #e0e0e0;
             }
         """
-
-
-if __name__ == "__main__":
-    app = QApplication([])
-    window = CustomNavBar()
-    window.show()
-    app.exec()
