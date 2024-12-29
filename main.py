@@ -2,7 +2,7 @@
 import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QTabWidget, QWidget, QPushButton, QHBoxLayout, QLineEdit
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPainter, QColor
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, Qt
 from Navbar import CustomNavBar
@@ -12,7 +12,6 @@ class Browser(QMainWindow):
         self.custom_html_path = custom_html_path
         self.setWindowTitle("PhantomSurf")
         self.setGeometry(100, 100, 1200, 800)
-        #self.setStyleSheet("background-color: lightblue;")
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         central_widget = QWidget()
@@ -20,6 +19,10 @@ class Browser(QMainWindow):
         self.setCentralWidget(central_widget)
 
         self.nav_bar = CustomNavBar()
+        self.nav_bar.setAutoFillBackground(True)
+        palette = self.nav_bar.palette()
+        palette.setColor(self.backgroundRole(), Qt.black)
+        self.setPalette(palette)
         self.nav_bar.back_signal.connect(self.navigate_back)
         self.nav_bar.forward_signal.connect(self.navigate_forward)
         self.nav_bar.reload_signal.connect(self.reload_page)
@@ -37,36 +40,48 @@ class Browser(QMainWindow):
         self.add_new_tab(label="Home")
         main_layout.addWidget(self.tabs)
         self.tabs.setStyleSheet("""
-    QTabBar {
-        background: black;
-        padding-left: 8px;
-        border-left: 4px solid #3c3b3b;
-    }
+            QTabBar {
+                background: black;
+                padding-left: 8px;
+                border-left: 4px solid #3c3b3b;
+            }
 
-    QTabBar::tab {
-        background: black;
-        color: gray;
-        margin: 4px;
-        margin-left: 8px;
-        padding: 20px 8px;
-        max-height: 150px;
-        border: none;
-    }
+            QTabBar::tab {
+                background: black;
+                color: gray;
+                margin: 4px;
+                margin-left: 8px;
+                padding: 20px 8px;
+                max-height: 150px;
+                border-radius: 4px;
+                border: none;
+            }
 
-    QTabBar::tab:hover {
-        background-color:rgb(154, 154, 154);
-        color: white;
-    }
+            QTabBar::tab:selected {
+                background-color: #3c3b3b;
+                color: white;
+                border-radius: 0;
+                margin:0;
+                border-right: 4px solid #6BEC75;
+            }
 
-    QTabBar::tab:selected {
-        background-color: #3c3b3b;
-        color: white;
-        margin-right: 0;
-        margin-left: 0px;
-        border-right: 4px solid #6BEC75;
-    }
-""")
+            QTabBar::tab:hover {
+                background-color:rgb(154, 154, 154);
+                color: white;
+            }
+        """)
 
+    def paintEvent(self, event):
+        """Custom painting to add a left border."""
+        super().paintEvent(event)
+        painter = QPainter(self)
+        border_color = QColor("#3c3b3b")
+        border_width = 4
+        painter.setPen(border_color)
+        painter.setBrush(border_color)
+        painter.drawRect(0, 0, border_width, self.height())
+        painter.end()
+        
     def update_close_buttons(self):
         """Update close buttons to only show on the active tab."""
         for i in range(self.tabs.count()):
@@ -77,14 +92,10 @@ class Browser(QMainWindow):
     def add_new_tab(self, qurl=None, label="New Tab"):
         if qurl is None:
             qurl = QUrl.fromLocalFile(self.custom_html_path)
-
         browser = QWebEngineView()
         browser.setUrl(qurl)
-
         tab_index = self.tabs.addTab(browser, label)
         self.tabs.setCurrentWidget(browser)
-
-        # Add a close button to the tab
         close_button = QPushButton("x")
         close_button.setStyleSheet("""
         QPushButton {
@@ -100,7 +111,6 @@ class Browser(QMainWindow):
         close_button.clicked.connect(lambda: self.close_current_tab(tab_index))
         self.tabs.tabBar().setTabButton(tab_index, self.tabs.tabBar().RightSide, close_button)
         self.update_close_buttons()
-
 
     def add_new_tab(self, qurl=None, label="New Tab"):
         if qurl is None:

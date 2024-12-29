@@ -1,7 +1,6 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QTabWidget, QWidget, QPushButton, QHBoxLayout, QLineEdit
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, Qt, pyqtSignal, QTimer
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QHBoxLayout, QLineEdit
+from PyQt5.QtGui import QPainter, QColor
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 import psutil
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -24,12 +23,10 @@ class CustomNavBar(QWidget):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(5, 5, 5, 0)
 
-        self.setStyleSheet("""
-            #customNavBar {
-                border-left: 4px solid #3c3b3b;
-                border-top: 4px solid #3c3b3b;
-            }
-        """)
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), Qt.black)
+        self.setPalette(palette)
 
         nav_bar_layout = QHBoxLayout()
         nav_bar_layout.setContentsMargins(0, 0, 0, 0)
@@ -65,7 +62,7 @@ class CustomNavBar(QWidget):
         self.url_bar.setPlaceholderText("Surf the web or enter the URL")
         self.url_bar.setFixedHeight(30)
         self.url_bar.setStyleSheet(
-            "border: 1px solid lightblue; border-radius: 5px; padding-left: 10px;"
+            "border: 1px solid #6BEC75; border-radius: 5px; padding-left: 10px;"
         )
         self.url_bar.returnPressed.connect(self.emit_url)
 
@@ -133,13 +130,24 @@ class CustomNavBar(QWidget):
         self.network_speed_graph.draw()
         self.prev_net = net
 
+    def paintEvent(self, event):
+        """Custom painting to add a left border."""
+        super().paintEvent(event)
+        painter = QPainter(self)
+        border_color = QColor("#3c3b3b")
+        border_width = 4
+        painter.setPen(border_color)
+        painter.setBrush(border_color)
+        painter.drawRect(0, 0, border_width, self.height())
+        painter.end()
 
     @staticmethod
     def button_style():
         return """
             QPushButton {
+                color: white;
                 border-radius: 5px;
-                background-color: #f0f0f0;
+                background-color: black;
             }
             QPushButton:hover {
                 background-color: #e0e0e0;
